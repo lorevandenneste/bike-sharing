@@ -9,11 +9,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import ElasticNetCV, LinearRegression
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+from sklearn.linear_model import Ridge, Lasso, RidgeCV, LassoCV
+from sklearn.model_selection import TimeSeriesSplit
 
 # Set visualization style
 sns.set_style('whitegrid')
@@ -29,12 +33,13 @@ print("\n📂 STEP 1: Data Loading and Preprocessing")
 print("-"*70)
 
 # Load dataset
-df = pd.read_csv("day.csv")
+df = pd.read_csv("bike-sharing/day.csv")
 print(f"✓ Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
 
 # Define features and target
 categorical = ['season', 'yr', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
-numeric = ['temp', 'atemp', 'hum', 'windspeed']
+#numeric = ['temp', 'atemp', 'hum', 'windspeed']
+numeric = ['temp', 'hum', 'windspeed']
 target = 'cnt'
 
 print(f"\nFeatures:")
@@ -79,10 +84,16 @@ print("\n🤖 STEP 2: Model Training")
 print("-"*70)
 
 # Create and train Linear Regression model
-model = LinearRegression()
-print("Training Linear Regression model...")
+# model = LinearRegression()
+# print("Training Linear Regression model...")
+# model.fit(X_train_processed, y_train)
+# print("✓ Model trained successfully!")
+
+# Alternatively, using Ridge Regression (lineaire regression + regularisatie) to mitigate overfitting 
+model = LassoCV(alphas=[0.1, 1, 10, 50, 100, 500, 1000], cv=5)
+print("Training Ridge Regression model...")
 model.fit(X_train_processed, y_train)
-print("✓ Model trained successfully!")
+print(f"✓ Model trained successfully! (Best alpha: {model.alpha_})")
 
 # ============================================================================
 # STEP 3: MAKING PREDICTIONS
@@ -131,6 +142,10 @@ elif abs(r2_diff) < 0.10:
     print("  ⚠️  Minor overfitting detected.")
 else:
     print("  ❌ Significant overfitting detected!")
+    
+print("\n💡 REGULARISATIE INFO:")
+print(f"  Alpha gebruikt: {model.alpha_}")
+print(f"  Effect: Coefficiënten zijn kleiner → minder overfitting")
 
 # ============================================================================
 # STEP 5: FEATURE IMPORTANCE (COEFFICIENTS)
@@ -184,7 +199,9 @@ print("-"*70)
 
 # Create figure with 4 subplots
 fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-fig.suptitle('Bike Rental Demand Prediction - Linear Regression Results', 
+# fig.suptitle('Bike Rental Demand Prediction - Linear Regression Results', 
+#              fontsize=16, fontweight='bold')
+fig.suptitle(f'Bike Rental Demand Prediction - Ridge Regression (α={model.alpha_})', 
              fontsize=16, fontweight='bold')
 
 # Plot 1: Actual vs Predicted (Test Set)
