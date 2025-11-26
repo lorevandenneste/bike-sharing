@@ -33,7 +33,7 @@ print("\n📂 STEP 1: Data Loading and Preprocessing")
 print("-"*70)
 
 # Load dataset
-df = pd.read_csv("bike-sharing/day.csv")
+df = pd.read_csv("bike-sharing/hour.csv")
 print(f"✓ Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
 
 # Define features and target
