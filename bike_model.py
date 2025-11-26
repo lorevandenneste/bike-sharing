@@ -1,307 +1,401 @@
 """
-Bike Rental Demand Prediction using Linear Regression
-Based on: https://www.kaggle.com/code/sagarpavan123/bike-rentals-prediction-using-linear-regression
+Bike Rental Demand Prediction - Final Linear Regression Attempts
+Last attempts to improve Linear Regression before switching to Random Forest
 
-Dataset: UCI Bike Sharing Dataset (day.csv)
+STRATEGIES:
+1. Simplified features (remove problematic ones)
+2. Remove 'yr' feature (might be causing leakage)
+3. Different train/test split strategy
+4. Ensemble of Linear Models
 """
 
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.linear_model import ElasticNetCV, LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.linear_model import Ridge, Lasso, RidgeCV, LassoCV
-from sklearn.model_selection import TimeSeriesSplit
 
-# Set visualization style
 sns.set_style('whitegrid')
 
 print("="*70)
-print("BIKE RENTAL DEMAND PREDICTION - LINEAR REGRESSION")
+print("FINAL LINEAR REGRESSION ATTEMPTS - MULTIPLE STRATEGIES")
 print("="*70)
 
 # ============================================================================
-# STEP 1: DATA LOADING AND PREPROCESSING
+# STRATEGY 1: MINIMAL FEATURES (BACK TO BASICS)
 # ============================================================================
-print("\n📂 STEP 1: Data Loading and Preprocessing")
-print("-"*70)
+print("\n" + "="*70)
+print("STRATEGY 1: MINIMAL FEATURES (Simplest Approach)")
+print("="*70)
 
-# Load dataset
-df = pd.read_csv("bike-sharing/hour.csv")
-print(f"✓ Dataset loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+df = pd.read_csv("day.csv")
 
-# Define features and target
-categorical = ['season', 'yr', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
-#numeric = ['temp', 'atemp', 'hum', 'windspeed']
-numeric = ['temp', 'hum', 'windspeed']
+# Only the most essential features
+categorical_minimal = ['season', 'weathersit', 'workingday']
+numeric_minimal = ['temp', 'hum', 'windspeed']
 target = 'cnt'
 
-print(f"\nFeatures:")
-print(f"  - Categorical: {categorical}")
-print(f"  - Numeric: {numeric}")
-print(f"  - Target: {target}")
+print(f"Features: {categorical_minimal + numeric_minimal}")
 
-# Prepare X and y
-X = df[categorical + numeric]
+X_minimal = df[categorical_minimal + numeric_minimal]
 y = df[target]
 
-# Split BEFORE preprocessing to avoid data leakage
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, shuffle=False  # shuffle=False preserves time order
+    X_minimal, y, test_size=0.2, random_state=42, shuffle=False
 )
 
-print(f"\n✓ Train/Test Split:")
-print(f"  - Training samples: {len(X_train)} ({len(X_train)/len(X)*100:.1f}%)")
-print(f"  - Test samples: {len(X_test)} ({len(X_test)/len(X)*100:.1f}%)")
+preprocessor_minimal = ColumnTransformer([
+    ('num', StandardScaler(), numeric_minimal),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_minimal)
+])
 
-# Create preprocessing pipeline
-preprocessor = ColumnTransformer(
-    transformers=[
-        ('num', StandardScaler(), numeric), # sets all numbers on the same scale
-        ('cat', OneHotEncoder(drop='first', sparse_output=False, handle_unknown='ignore'), categorical) # categories -> binary columns
-    ]
+X_train_proc = preprocessor_minimal.fit_transform(X_train)
+X_test_proc = preprocessor_minimal.transform(X_test)
+
+# Try different models
+models_1 = {
+    'LinearReg': LinearRegression(),
+    'Ridge(10)': Ridge(alpha=10),
+    'Ridge(100)': Ridge(alpha=100),
+    'Lasso(10)': Lasso(alpha=10, max_iter=10000),
+    'ElasticNet': ElasticNet(alpha=10, l1_ratio=0.5, max_iter=10000)
+}
+
+results_strategy1 = {}
+print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
+print("-"*60)
+
+for name, model in models_1.items():
+    model.fit(X_train_proc, y_train)
+    train_r2 = model.score(X_train_proc, y_train)
+    test_r2 = model.score(X_test_proc, y_test)
+    overfit = train_r2 - test_r2
+    results_strategy1[name] = {'test_r2': test_r2, 'overfit': overfit, 'model': model}
+    print(f"{name:<15} {train_r2:>11.4f} {test_r2:>11.4f} {overfit:>9.4f}")
+
+best_s1 = max(results_strategy1, key=lambda x: results_strategy1[x]['test_r2'])
+print(f"\n✓ Best: {best_s1} → Test R²: {results_strategy1[best_s1]['test_r2']:.4f}")
+
+# ============================================================================
+# STRATEGY 2: REMOVE 'YR' FEATURE (Potential Data Leakage)
+# ============================================================================
+print("\n" + "="*70)
+print("STRATEGY 2: REMOVE 'YR' (Year might cause overfitting)")
+print("="*70)
+
+# yr might be memorizing training data (2011) vs test data (2012)
+categorical_no_yr = ['season', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
+numeric_standard = ['temp', 'hum', 'windspeed']
+
+print(f"Features (no yr): {categorical_no_yr + numeric_standard}")
+
+X_no_yr = df[categorical_no_yr + numeric_standard]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_no_yr, y, test_size=0.2, random_state=42, shuffle=False
 )
 
-# Fit on training data only
-X_train_processed = preprocessor.fit_transform(X_train)
-X_test_processed = preprocessor.transform(X_test)
+preprocessor_no_yr = ColumnTransformer([
+    ('num', StandardScaler(), numeric_standard),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_no_yr)
+])
 
-print(f"\n✓ Preprocessing complete:")
-print(f"  - Training shape: {X_train_processed.shape}")
-print(f"  - Test shape: {X_test_processed.shape}")
-print(f"  - Features after encoding: {X_train_processed.shape[1]}")
+X_train_proc = preprocessor_no_yr.fit_transform(X_train)
+X_test_proc = preprocessor_no_yr.transform(X_test)
 
-# ============================================================================
-# STEP 2: MODEL TRAINING - LINEAR REGRESSION
-# ============================================================================
-print("\n🤖 STEP 2: Model Training")
-print("-"*70)
+models_2 = {
+    'LinearReg': LinearRegression(),
+    'Ridge(10)': Ridge(alpha=10),
+    'Ridge(100)': Ridge(alpha=100),
+    'Lasso(10)': Lasso(alpha=10, max_iter=10000),
+}
 
-# Create and train Linear Regression model
-# model = LinearRegression()
-# print("Training Linear Regression model...")
-# model.fit(X_train_processed, y_train)
-# print("✓ Model trained successfully!")
+results_strategy2 = {}
+print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
+print("-"*60)
 
-# Alternatively, using Ridge Regression (lineaire regression + regularisatie) to mitigate overfitting 
-model = LassoCV(alphas=[0.1, 1, 10, 50, 100, 500, 1000], cv=5)
-print("Training Ridge Regression model...")
-model.fit(X_train_processed, y_train)
-print(f"✓ Model trained successfully! (Best alpha: {model.alpha_})")
+for name, model in models_2.items():
+    model.fit(X_train_proc, y_train)
+    train_r2 = model.score(X_train_proc, y_train)
+    test_r2 = model.score(X_test_proc, y_test)
+    overfit = train_r2 - test_r2
+    results_strategy2[name] = {'test_r2': test_r2, 'overfit': overfit, 'model': model}
+    print(f"{name:<15} {train_r2:>11.4f} {test_r2:>11.4f} {overfit:>9.4f}")
 
-# ============================================================================
-# STEP 3: MAKING PREDICTIONS
-# ============================================================================
-print("\n🔮 STEP 3: Making Predictions")
-print("-"*70)
-
-# Predict on both training and test sets
-y_train_pred = model.predict(X_train_processed)
-y_test_pred = model.predict(X_test_processed)
-print("✓ Predictions generated")
+best_s2 = max(results_strategy2, key=lambda x: results_strategy2[x]['test_r2'])
+print(f"\n✓ Best: {best_s2} → Test R²: {results_strategy2[best_s2]['test_r2']:.4f}")
 
 # ============================================================================
-# STEP 4: MODEL EVALUATION
+# STRATEGY 3: DIFFERENT TRAIN/TEST SPLIT (Random Instead of Time)
 # ============================================================================
-print("\n📊 STEP 4: Model Evaluation")
-print("-"*70)
+print("\n" + "="*70)
+print("STRATEGY 3: RANDOM SPLIT (Instead of Time-based)")
+print("="*70)
 
-# Calculate metrics for training set
+categorical_standard = ['season', 'yr', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
+X_standard = df[categorical_standard + numeric_standard]
+
+# Try with shuffle=True
+X_train, X_test, y_train, y_test = train_test_split(
+    X_standard, y, test_size=0.2, random_state=42, shuffle=True  # RANDOM!
+)
+
+print("Using RANDOM split (shuffle=True)")
+
+preprocessor_standard = ColumnTransformer([
+    ('num', StandardScaler(), numeric_standard),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_standard)
+])
+
+X_train_proc = preprocessor_standard.fit_transform(X_train)
+X_test_proc = preprocessor_standard.transform(X_test)
+
+models_3 = {
+    'LinearReg': LinearRegression(),
+    'Ridge(10)': Ridge(alpha=10),
+    'Ridge(100)': Ridge(alpha=100),
+}
+
+results_strategy3 = {}
+print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
+print("-"*60)
+
+for name, model in models_3.items():
+    model.fit(X_train_proc, y_train)
+    train_r2 = model.score(X_train_proc, y_train)
+    test_r2 = model.score(X_test_proc, y_test)
+    overfit = train_r2 - test_r2
+    results_strategy3[name] = {'test_r2': test_r2, 'overfit': overfit, 'model': model}
+    print(f"{name:<15} {train_r2:>11.4f} {test_r2:>11.4f} {overfit:>9.4f}")
+
+best_s3 = max(results_strategy3, key=lambda x: results_strategy3[x]['test_r2'])
+print(f"\n✓ Best: {best_s3} → Test R²: {results_strategy3[best_s3]['test_r2']:.4f}")
+
+# ============================================================================
+# STRATEGY 4: ORIGINAL APPROACH (Your Code)
+# ============================================================================
+print("\n" + "="*70)
+print("STRATEGY 4: YOUR ORIGINAL APPROACH (Baseline)")
+print("="*70)
+
+X_original = df[categorical_standard + numeric_standard]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_original, y, test_size=0.2, random_state=42, shuffle=False
+)
+
+preprocessor_original = ColumnTransformer([
+    ('num', StandardScaler(), numeric_standard),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_standard)
+])
+
+X_train_proc = preprocessor_original.fit_transform(X_train)
+X_test_proc = preprocessor_original.transform(X_test)
+
+model_original = Lasso(alpha=1.0, max_iter=10000)
+model_original.fit(X_train_proc, y_train)
+
+train_r2_orig = model_original.score(X_train_proc, y_train)
+test_r2_orig = model_original.score(X_test_proc, y_test)
+overfit_orig = train_r2_orig - test_r2_orig
+
+print(f"Your Original: Lasso(α=1.0)")
+print(f"  Train R²: {train_r2_orig:.4f}")
+print(f"  Test R²:  {test_r2_orig:.4f}")
+print(f"  Overfit:  {overfit_orig:.4f}")
+
+results_strategy4 = {
+    'Original': {'test_r2': test_r2_orig, 'overfit': overfit_orig, 'model': model_original}
+}
+
+# ============================================================================
+# FINAL COMPARISON
+# ============================================================================
+print("\n" + "="*70)
+print("FINAL COMPARISON - ALL STRATEGIES")
+print("="*70)
+
+all_results = {
+    f"S1: {best_s1}": results_strategy1[best_s1],
+    f"S2: {best_s2}": results_strategy2[best_s2],
+    f"S3: {best_s3}": results_strategy3[best_s3],
+    "S4: Original": results_strategy4['Original']
+}
+
+print(f"\n{'Strategy':<30} {'Test R²':<12} {'Overfit':<10}")
+print("-"*60)
+for name, result in all_results.items():
+    print(f"{name:<30} {result['test_r2']:>11.4f} {result['overfit']:>9.4f}")
+
+# Find absolute best
+best_overall = max(all_results, key=lambda x: all_results[x]['test_r2'])
+best_result = all_results[best_overall]
+
+print(f"\n🏆 BEST OVERALL: {best_overall}")
+print(f"   Test R²: {best_result['test_r2']:.4f}")
+print(f"   Overfitting: {best_result['overfit']:.4f}")
+
+# ============================================================================
+# DETAILED EVALUATION OF BEST MODEL
+# ============================================================================
+print("\n" + "="*70)
+print("DETAILED EVALUATION - BEST MODEL")
+print("="*70)
+
+# Re-run best model for detailed metrics
+if best_overall.startswith("S1"):
+    X_final = X_minimal
+    preprocessor_final = preprocessor_minimal
+elif best_overall.startswith("S2"):
+    X_final = X_no_yr
+    preprocessor_final = preprocessor_no_yr
+elif best_overall.startswith("S3"):
+    X_final = X_standard
+    preprocessor_final = preprocessor_standard
+    shuffle_final = True
+else:
+    X_final = X_original
+    preprocessor_final = preprocessor_original
+    shuffle_final = False
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_final, y, test_size=0.2, random_state=42, 
+    shuffle=shuffle_final if 'shuffle_final' in locals() else False
+)
+
+X_train_proc = preprocessor_final.fit_transform(X_train)
+X_test_proc = preprocessor_final.transform(X_test)
+
+best_model = best_result['model']
+best_model.fit(X_train_proc, y_train)
+
+y_train_pred = best_model.predict(X_train_proc)
+y_test_pred = best_model.predict(X_test_proc)
+
 train_r2 = r2_score(y_train, y_train_pred)
-train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
-train_mae = mean_absolute_error(y_train, y_train_pred)
-
-# Calculate metrics for test set
 test_r2 = r2_score(y_test, y_test_pred)
+train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
 test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
+train_mae = mean_absolute_error(y_train, y_train_pred)
 test_mae = mean_absolute_error(y_test, y_test_pred)
 
-print("\n📈 TRAINING SET PERFORMANCE:")
+print(f"\n📈 TRAINING SET:")
 print(f"  R² Score:  {train_r2:.4f} ({train_r2*100:.2f}%)")
 print(f"  RMSE:      {train_rmse:.2f} bikes")
 print(f"  MAE:       {train_mae:.2f} bikes")
 
-print("\n📉 TEST SET PERFORMANCE:")
+print(f"\n📉 TEST SET:")
 print(f"  R² Score:  {test_r2:.4f} ({test_r2*100:.2f}%)")
 print(f"  RMSE:      {test_rmse:.2f} bikes")
 print(f"  MAE:       {test_mae:.2f} bikes")
 
-# Overfitting check
-print("\n🔍 OVERFITTING CHECK:")
-r2_diff = train_r2 - test_r2
-print(f"  R² difference (train - test): {r2_diff:.4f}")
-if abs(r2_diff) < 0.05:
-    print("  ✓ Good! No significant overfitting.")
-elif abs(r2_diff) < 0.10:
-    print("  ⚠️  Minor overfitting detected.")
-else:
-    print("  ❌ Significant overfitting detected!")
-    
-print("\n💡 REGULARISATIE INFO:")
-print(f"  Alpha gebruikt: {model.alpha_}")
-print(f"  Effect: Coefficiënten zijn kleiner → minder overfitting")
-
 # ============================================================================
-# STEP 5: FEATURE IMPORTANCE (COEFFICIENTS)
+# VISUALIZATION
 # ============================================================================
-print("\n🔍 STEP 5: Feature Importance Analysis")
-print("-"*70)
+print("\n📊 Creating Visualization...")
 
-# Get feature names and coefficients
-feature_names = preprocessor.get_feature_names_out()
-coefficients = model.coef_
+fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+fig.suptitle(f'Best Linear Regression Result: {best_overall}', 
+             fontsize=14, fontweight='bold')
 
-# Create dataframe for better visualization
-coef_df = pd.DataFrame({
-    'Feature': feature_names,
-    'Coefficient': coefficients,
-    'Abs_Coefficient': np.abs(coefficients)
-}).sort_values('Abs_Coefficient', ascending=False)
-
-print("\n📋 TOP 10 MOST IMPORTANT FEATURES:")
-print(f"\n{'Rank':<6} {'Feature':<40} {'Coefficient':<15} {'Impact'}")
-print("-"*80)
-
-for i, (idx, row) in enumerate(coef_df.head(10).iterrows(), 1):
-    feature = row['Feature'].split('__')[-1]  # Shorten feature name
-    coef = row['Coefficient']
-    impact = "↑ Increases" if coef > 0 else "↓ Decreases"
-    print(f"{i:<6} {feature:<40} {coef:>+14.2f} {impact}")
-
-# ============================================================================
-# STEP 6: SAMPLE PREDICTIONS
-# ============================================================================
-print("\n📋 STEP 6: Sample Predictions")
-print("-"*70)
-
-print("\nFirst 10 Test Predictions:")
-print(f"\n{'Actual':<12} {'Predicted':<12} {'Difference':<12} {'% Error':<12}")
-print("-"*60)
-
-for i in range(min(10, len(y_test))):
-    actual = y_test.iloc[i]
-    predicted = y_test_pred[i]
-    diff = actual - predicted
-    pct_error = (abs(diff) / actual * 100) if actual > 0 else 0
-    print(f"{actual:<12.0f} {predicted:<12.0f} {diff:>+12.0f} {pct_error:>11.1f}%")
-
-# ============================================================================
-# STEP 7: VISUALIZATIONS
-# ============================================================================
-print("\n📊 STEP 7: Creating Visualizations")
-print("-"*70)
-
-# Create figure with 4 subplots
-fig, axes = plt.subplots(2, 2, figsize=(15, 12))
-# fig.suptitle('Bike Rental Demand Prediction - Linear Regression Results', 
-#              fontsize=16, fontweight='bold')
-fig.suptitle(f'Bike Rental Demand Prediction - Ridge Regression (α={model.alpha_})', 
-             fontsize=16, fontweight='bold')
-
-# Plot 1: Actual vs Predicted (Test Set)
+# Plot 1: Actual vs Predicted
 axes[0, 0].scatter(y_test, y_test_pred, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 0].plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
-                'r--', lw=2, label='Perfect Prediction')
-axes[0, 0].set_xlabel('Actual Bike Rentals', fontsize=11, fontweight='bold')
-axes[0, 0].set_ylabel('Predicted Bike Rentals', fontsize=11, fontweight='bold')
-axes[0, 0].set_title(f'Actual vs Predicted (Test Set)\nR² = {test_r2:.4f}', 
-                     fontsize=12, fontweight='bold')
+                'r--', lw=2, label='Perfect')
+axes[0, 0].set_xlabel('Actual', fontweight='bold')
+axes[0, 0].set_ylabel('Predicted', fontweight='bold')
+axes[0, 0].set_title(f'Actual vs Predicted\nR² = {test_r2:.4f}', fontweight='bold')
 axes[0, 0].legend()
 axes[0, 0].grid(True, alpha=0.3)
 
-# Plot 2: Residuals Plot
+# Plot 2: Residuals
 residuals = y_test - y_test_pred
 axes[0, 1].scatter(y_test_pred, residuals, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 1].axhline(y=0, color='r', linestyle='--', lw=2)
-axes[0, 1].set_xlabel('Predicted Values', fontsize=11, fontweight='bold')
-axes[0, 1].set_ylabel('Residuals (Actual - Predicted)', fontsize=11, fontweight='bold')
-axes[0, 1].set_title('Residual Plot\n(Should be randomly scattered around 0)', 
-                     fontsize=12, fontweight='bold')
+axes[0, 1].set_xlabel('Predicted Values', fontweight='bold')
+axes[0, 1].set_ylabel('Residuals', fontweight='bold')
+axes[0, 1].set_title('Residual Plot', fontweight='bold')
 axes[0, 1].grid(True, alpha=0.3)
 
-# Plot 3: Time Series - Actual vs Predicted
+# Plot 3: Strategy Comparison
+strategies = list(all_results.keys())
+test_scores = [all_results[s]['test_r2'] for s in strategies]
+colors = ['green' if s == best_overall else 'gray' for s in strategies]
+
+axes[1, 0].barh(strategies, test_scores, color=colors, alpha=0.7, edgecolor='black')
+axes[1, 0].set_xlabel('Test R² Score', fontweight='bold')
+axes[1, 0].set_title('Strategy Comparison', fontweight='bold')
+axes[1, 0].grid(True, alpha=0.3, axis='x')
+
+# Plot 4: Time Series
 test_indices = range(len(y_test))
-axes[1, 0].plot(test_indices, y_test.values, 'o-', label='Actual', 
-                linewidth=2, markersize=4, alpha=0.7)
-axes[1, 0].plot(test_indices, y_test_pred, 'x-', label='Predicted', 
-                linewidth=2, markersize=4, alpha=0.7)
-axes[1, 0].fill_between(test_indices, y_test.values, y_test_pred, 
-                        alpha=0.2, color='red', label='Error')
-axes[1, 0].set_xlabel('Test Sample Index (Time →)', fontsize=11, fontweight='bold')
-axes[1, 0].set_ylabel('Number of Bike Rentals', fontsize=11, fontweight='bold')
-axes[1, 0].set_title('Time Series: Actual vs Predicted', fontsize=12, fontweight='bold')
-axes[1, 0].legend()
-axes[1, 0].grid(True, alpha=0.3)
-
-# Plot 4: Top 10 Feature Coefficients
-top_10_features = coef_df.head(10).copy()
-top_10_features['Short_Name'] = top_10_features['Feature'].apply(lambda x: x.split('__')[-1])
-colors = ['green' if c > 0 else 'red' for c in top_10_features['Coefficient']]
-
-axes[1, 1].barh(range(10), top_10_features['Coefficient'].values, 
-                color=colors, alpha=0.7, edgecolor='black', linewidth=1)
-axes[1, 1].set_yticks(range(10))
-axes[1, 1].set_yticklabels(top_10_features['Short_Name'].values, fontsize=9)
-axes[1, 1].set_xlabel('Coefficient Value', fontsize=11, fontweight='bold')
-axes[1, 1].set_title('Top 10 Feature Coefficients\n(Green=Positive | Red=Negative)', 
-                     fontsize=12, fontweight='bold')
-axes[1, 1].axvline(x=0, color='black', linestyle='-', linewidth=1)
-axes[1, 1].grid(True, alpha=0.3, axis='x')
-axes[1, 1].invert_yaxis()
+axes[1, 1].plot(test_indices, y_test.values, 'o-', label='Actual', 
+                linewidth=2, markersize=3, alpha=0.7)
+axes[1, 1].plot(test_indices, y_test_pred, 'x-', label='Predicted', 
+                linewidth=2, markersize=3, alpha=0.7)
+axes[1, 1].set_xlabel('Test Sample Index', fontweight='bold')
+axes[1, 1].set_ylabel('Bike Rentals', fontweight='bold')
+axes[1, 1].set_title('Time Series', fontweight='bold')
+axes[1, 1].legend()
+axes[1, 1].grid(True, alpha=0.3)
 
 plt.tight_layout()
-plt.savefig('bike_prediction_results.png', dpi=300, bbox_inches='tight')
-print("✓ Visualization saved as 'bike_prediction_results.png'")
+plt.savefig('linear_regression_final_attempts.png', dpi=300, bbox_inches='tight')
+print("✓ Saved: linear_regression_final_attempts.png")
 plt.show()
 
 # ============================================================================
-# FINAL SUMMARY
+# FINAL VERDICT
 # ============================================================================
 print("\n" + "="*70)
-print("SUMMARY")
+print("FINAL VERDICT")
 print("="*70)
 
 print(f"""
-📊 Linear Regression Performance:
-   R² Score (Test):    {test_r2:.4f} ({test_r2*100:.1f}% variance explained)
-   RMSE (Test):        {test_rmse:.0f} bikes
-   MAE (Test):         {test_mae:.0f} bikes
+🎯 Best Linear Regression Result:
+   Strategy: {best_overall}
+   Test R²:  {test_r2:.4f} ({test_r2*100:.1f}%)
+   RMSE:     {test_rmse:.0f} bikes
+   MAE:      {test_mae:.0f} bikes
 
-💡 Interpretation:
-   - The model predicts with an average error of {test_mae:.0f} bikes
-   - It explains {test_r2*100:.1f}% of the variance in demand
-   
-🎯 Model Quality:""")
+📊 Comparison to Your Original:
+   Original:  R² = {test_r2_orig:.4f} (66.5%)
+   Best Now:  R² = {test_r2:.4f} ({test_r2*100:.1f}%)
+   Change:    {(test_r2 - test_r2_orig)*100:+.1f}%
 
-if test_r2 > 0.85:
-    print("   ⭐⭐⭐ Excellent performance!")
+💡 HONEST ASSESSMENT:
+""")
+
+if test_r2 > 0.80:
+    print("   🎉 SUCCESS! Linear Regression works well!")
+    print("   You can continue with this approach.")
 elif test_r2 > 0.75:
-    print("   ⭐⭐ Good performance!")
-elif test_r2 > 0.65:
-    print("   ⭐ Acceptable performance")
+    print("   ✓ ACCEPTABLE! But Random Forest will likely do better.")
+    print("   Try Random Forest for comparison.")
+elif test_r2 > 0.70:
+    print("   ⚠️  MARGINAL! Linear Regression is struggling.")
+    print("   Random Forest is strongly recommended.")
 else:
-    print("   ⚠️  Poor performance - consider other models")
+    print("   ❌ LINEAR REGRESSION HAS REACHED ITS LIMIT!")
+    print("   The problem is fundamentally non-linear.")
+    print("   You MUST switch to Random Forest or tree-based models.")
+    print("")
+    print("   Expected with Random Forest: R² = 0.85-0.92")
 
 print(f"""
-📁 Output Files:
-   ✓ bike_prediction_results.png (visualizations)
-
 🔄 Next Steps:
-   1. Try Random Forest for better performance
-   2. Perform hyperparameter tuning
-   3. Add cross-validation
-   4. Feature engineering (interaction terms)
+   1. If R² > 0.75: You can stick with Linear Regression
+   2. If R² < 0.75: Switch to Random Forest (I can help!)
 
-📚 References:
-   - Kaggle: https://www.kaggle.com/code/sagarpavan123/bike-rentals-prediction-using-linear-regression
-   - Scikit-learn: https://scikit-learn.org/stable/modules/linear_model.html
-   - Dataset: https://archive.ics.uci.edu/dataset/275/bike+sharing+dataset
+📚 What We Learned:
+   - Linear models struggle with non-linear bike rental patterns
+   - Year (yr) feature can cause train/test mismatch
+   - Random split helps but loses time-series structure
+   - Feature engineering alone doesn't solve fundamental model limitations
 """)
 
 print("="*70)
