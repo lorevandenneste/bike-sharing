@@ -32,7 +32,7 @@ print("\n" + "="*70)
 print("STRATEGY 1: MINIMAL FEATURES (Simplest Approach)")
 print("="*70)
 
-df = pd.read_csv("bike-sharing/day.csv")
+df = pd.read_csv("day.csv")
 
 # Only the most essential features
 categorical_minimal = ['season', 'weathersit', 'workingday']
@@ -176,7 +176,7 @@ best_s3 = max(results_strategy3, key=lambda x: results_strategy3[x]['test_r2'])
 print(f"\n✓ Best: {best_s3} → Test R²: {results_strategy3[best_s3]['test_r2']:.4f}")
 
 # ============================================================================
-# STRATEGY 4: ORIGINAL APPROACH (Your Code)
+# STRATEGY 4: ORIGINAL APPROACH 
 # ============================================================================
 print("\n" + "="*70)
 print("STRATEGY 4: YOUR ORIGINAL APPROACH (Baseline)")
@@ -213,6 +213,103 @@ results_strategy4 = {
 }
 
 # ============================================================================
+# STRATEGY 5: CROSS-VALIDATION (Robust Evaluation)
+# ============================================================================
+print("\n" + "="*70)
+print("STRATEGY 5: CROSS-VALIDATION")
+print("="*70)
+
+from sklearn.model_selection import cross_val_score, KFold
+
+categorical_cv = ['season', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
+numeric_cv = ['temp', 'hum', 'windspeed']
+X_cv = df[categorical_cv + numeric_cv]
+
+preprocessor_cv = ColumnTransformer([
+    ('num', StandardScaler(), numeric_cv),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_cv)
+])
+
+X_proc = preprocessor_cv.fit_transform(X_cv)
+
+# Try Ridge and Lasso with CV
+models_cv = {
+    'LinearReg': LinearRegression(),
+    'Ridge(10)': Ridge(alpha=10),
+    'Lasso(1)': Lasso(alpha=1.0, max_iter=10000)
+}
+
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+
+print(f"\n{'Model':<15} {'Mean R²':<12} {'Std R²':<12}")
+print("-"*50)
+
+results_strategy5 = {}
+for name, model in models_cv.items():
+    scores = cross_val_score(model, X_proc, y, cv=kf, scoring='r2')
+    mean_r2 = scores.mean()
+    std_r2 = scores.std()
+    results_strategy5[name] = {'mean_r2': mean_r2, 'std_r2': std_r2, 'model': model}
+    print(f"{name:<15} {mean_r2:>11.4f} {std_r2:>11.4f}")
+
+best_s5 = max(results_strategy5, key=lambda x: results_strategy5[x]['mean_r2'])
+print(f"\n✓ Best CV Model: {best_s5} → Mean R²: {results_strategy5[best_s5]['mean_r2']:.4f}")
+
+best_s5_result = {
+    'test_r2': results_strategy5[best_s5]['mean_r2'],
+    'overfit': results_strategy5[best_s5]['std_r2'],  # hier gebruiken we std als 'variatie'
+    'model': results_strategy5[best_s5]['model']
+}
+
+# ============================================================================
+# STRATEGY 6: POLYNOMIAL FEATURES (Non-linear Relationships)
+# ============================================================================
+print("\n" + "="*70)
+print("STRATEGY 6: POLYNOMIAL FEATURES")
+print("="*70)
+
+from sklearn.preprocessing import PolynomialFeatures
+
+categorical_poly = ['season', 'weathersit', 'workingday']
+numeric_poly = ['temp', 'hum', 'windspeed']
+X_poly = df[categorical_poly + numeric_poly]
+
+preprocessor_poly = ColumnTransformer([
+    ('num', StandardScaler(), numeric_poly),
+    ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_poly)
+])
+
+X_proc_poly = preprocessor_poly.fit_transform(X_poly)
+
+# Add polynomial expansion on numeric features
+poly = PolynomialFeatures(degree=2, include_bias=False)
+X_proc_poly_expanded = poly.fit_transform(X_proc_poly)
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_proc_poly_expanded, y, test_size=0.2, random_state=42, shuffle=False
+)
+
+model_poly = Ridge(alpha=10)
+model_poly.fit(X_train, y_train)
+
+train_r2_poly = model_poly.score(X_train, y_train)
+test_r2_poly = model_poly.score(X_test, y_test)
+
+print(f"Polynomial Ridge (deg=2):")
+print(f"  Train R²: {train_r2_poly:.4f}")
+print(f"  Test R²:  {test_r2_poly:.4f}")
+print(f"  Overfit:  {train_r2_poly - test_r2_poly:.4f}")
+
+results_strategy6 = {
+    'Polynomial Ridge': {
+        'test_r2': test_r2_poly,
+        'overfit': train_r2_poly - test_r2_poly,
+        'model': model_poly
+    }
+}
+
+
+# ============================================================================
 # FINAL COMPARISON
 # ============================================================================
 print("\n" + "="*70)
@@ -223,7 +320,9 @@ all_results = {
     f"S1: {best_s1}": results_strategy1[best_s1],
     f"S2: {best_s2}": results_strategy2[best_s2],
     f"S3: {best_s3}": results_strategy3[best_s3],
-    "S4: Original": results_strategy4['Original']
+    "S4: Original": results_strategy4['Original'],
+    f"S5: {best_s5} (CV)": best_s5_result,
+    "S6: Polynomial Ridge": results_strategy6['Polynomial Ridge']
 }
 
 print(f"\n{'Strategy':<30} {'Test R²':<12} {'Overfit':<10}")
