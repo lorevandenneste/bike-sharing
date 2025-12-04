@@ -1,16 +1,10 @@
-
-# ===============================
-# Bike Rental - Random Forest (Full Evaluation + Visuals + Clear Verdict)
-#https://www.kaggle.com/code/lakshmi25npathi/bike-rental-count-prediction-using-python
-# ===============================
-
 import pandas as pd
 import numpy as np
 import math
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from sklearn.model_selection import train_test_split, cross_val_score, learning_curve
+from sklearn.model_selection import train_test_split, cross_val_score, learning_curve, TimeSeriesSplit
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.inspection import permutation_importance
@@ -18,31 +12,48 @@ from sklearn.inspection import permutation_importance
 sns.set_style('whitegrid')
 plt.rcParams['figure.dpi'] = 120
 
-# 1) Load dataset
-data = pd.read_csv("bike-sharing/day.csv")
+# 1) Load dataset en Datum Indexering 🗓️
+# Gebruik 'dteday' als datum en index
+data = pd.read_csv("bike-sharing/day.csv", parse_dates=['dteday'], index_col='dteday')
+# Sorteren op datum is cruciaal voor Lag-features en shuffle=False
+data = data.sort_index()
 
-# 2) Features & target
-features = ['temp', 'atemp', 'hum', 'windspeed',
-            'season', 'yr', 'mnth', 'holiday', 'weekday', 'workingday', 'weathersit']
+# 2) Feature Engineering: Lag-Features (Vorige Dag/Week)
+# Voeg het aantal verhuurde fietsen van gisteren (t-1) en vorige week (t-7) toe
+data['cnt_lag_1'] = data['cnt'].shift(1)
+data['cnt_lag_7'] = data['cnt'].shift(7)
+
+# Verwijder de rijen met NaN-waarden die zijn ontstaan door de shift (de eerste 7 dagen)
+data.dropna(inplace=True)
+
+# 3) Features & target bijwerken
+features = ['temp', 'hum', 'windspeed',
+            'season', 'yr', 'mnth', 'holiday', 'weekday', 'workingday', 'weathersit',
+            'cnt_lag_1', 'cnt_lag_7'] # NIEUWE FEATURES TOEGEVOEGD
 X = data[features]
 y = data['cnt']
 
-# 3) Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# 4) Train-test split (shuffle=False is behouden, nu op de gezuiverde data)
+# Let op: test_size is nu 20% van de resterende data na dropna
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=False)
 
-# 4) Model
+# 5) Model
 rf = RandomForestRegressor(n_estimators=100, random_state=42)
+# U kunt hier nu ook de gesuggereerde hyperparameter tuning toevoegen, bv. max_depth=10
+# rf = RandomForestRegressor(n_estimators=100, max_depth=10, random_state=42) 
 rf.fit(X_train, y_train)
 
-# 5) Cross-validation
-cv_scores = cross_val_score(rf, X_train, y_train, cv=5, scoring='r2')
+# 6) Cross-validation
+# TimeSeriesSplit is correct en behouden
+tscv = TimeSeriesSplit(n_splits=5)
+cv_scores = cross_val_score(rf, X_train, y_train, cv=tscv, scoring='r2')
 print("Cross-validation R² scores:", cv_scores)
 print("Gemiddelde CV R²:", cv_scores.mean())
 
-# 6) Predictions
+# 7) Predictions
 y_pred = rf.predict(X_test)
 
-# 7) Metrics
+# 8) Metrics
 train_r2 = r2_score(y_train, rf.predict(X_train))
 test_r2 = r2_score(y_test, y_pred)
 train_rmse = math.sqrt(mean_squared_error(y_train, rf.predict(X_train)))
@@ -90,6 +101,7 @@ print(feat_imp.head(5))
 
 # ===================== PERMUTATION IMPORTANCE =====================
 try:
+    # Permutation Importance wordt uitgevoerd op de TEST set (X_test)
     perm = permutation_importance(rf, X_test, y_test, n_repeats=20, random_state=42, scoring='r2')
     perm_imp = pd.Series(perm.importances_mean, index=features).sort_values(ascending=False)
     print("\nPermutation Importance (Top 5):")
@@ -124,8 +136,9 @@ axes[1, 0].barh(feat_imp.index, feat_imp.values, color='teal')
 axes[1, 0].set_title('Feature Importances')
 
 # E) Learning Curve
+# Gebruik X en y die de lag features bevatten
 train_sizes, train_scores, test_scores = learning_curve(
-    rf, X, y, cv=5, scoring='r2', train_sizes=np.linspace(0.1, 1.0, 8)
+    rf, X, y, cv=tscv, scoring='r2', train_sizes=np.linspace(0.1, 1.0, 8)
 )
 axes[1, 1].plot(train_sizes, train_scores.mean(axis=1), 'o-', label='Train R²')
 axes[1, 1].plot(train_sizes, test_scores.mean(axis=1), 'o-', label='CV R²')
@@ -137,7 +150,7 @@ sns.boxplot(y=cv_scores, ax=axes[1, 2], color='lightgray')
 axes[1, 2].set_title('CV R² Distribution')
 
 plt.tight_layout()
-plt.savefig('rf_diagnostics.png', dpi=300)
+plt.savefig('rf_diagnostics_enhanced.png', dpi=300)
 plt.show()
 
 # ===================== FINAL VERDICT =====================
