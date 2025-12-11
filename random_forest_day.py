@@ -100,49 +100,43 @@ feat_imp = pd.Series(importances, index=features).sort_values(ascending=False)
 print("\nTop-5 belangrijkste features:")
 print(feat_imp.head(5))
 
-# 10) Visualisaties
-print("\n📊 Generating visuals...")
+# ===================== VISUALS =====================
+print("\n📊 Generating combined visuals...")
+
+residuals = np.array(actuals) - np.array(preds)
+
+fig, axes = plt.subplots(2, 2, figsize=(16, 10))
 
 # A) Actual vs Predicted
-plt.figure(figsize=(12,6))
-plt.plot(dates, actuals, label="Actual", color="steelblue")
-plt.plot(dates, preds,   label="Predicted", color="darkorange")
-plt.title("Rolling Walk-forward: Actual vs Predicted (met seizoensfeatures)")
-plt.xlabel("Date"); plt.ylabel("Bike rentals")
-plt.legend()
-plt.tight_layout()
-plt.savefig("rolling_walk_forward_rf_seasonal.png", dpi=300)
-plt.show()
+axes[0, 0].plot(dates, actuals, label="Actual", color="steelblue")
+axes[0, 0].plot(dates, preds,   label="Predicted", color="darkorange")
+axes[0, 0].set_title("Rolling Walk-forward: Actual vs Predicted")
+axes[0, 0].set_xlabel("Date"); axes[0, 0].set_ylabel("Bike rentals")
+axes[0, 0].legend()
 
 # B) Residuals over tijd
-residuals = np.array(actuals) - np.array(preds)
-plt.figure(figsize=(12,4))
-plt.plot(dates, residuals, color="purple")
-plt.axhline(0, color="red", linestyle="--")
-plt.title("Residuals over time (met seizoensfeatures)")
-plt.xlabel("Date"); plt.ylabel("Residual")
-plt.tight_layout()
-plt.savefig("rolling_walk_forward_rf_residuals_seasonal.png", dpi=300)
-plt.show()
+axes[0, 1].plot(dates, residuals, color="purple")
+axes[0, 1].axhline(0, color="red", linestyle="--")
+axes[0, 1].set_title("Residuals over time")
+axes[0, 1].set_xlabel("Date"); axes[0, 1].set_ylabel("Residual")
 
 # C) Residual histogram
-plt.figure(figsize=(8,5))
-sns.histplot(residuals, bins=30, kde=True, color="steelblue")
-plt.title("Residual distribution (met seizoensfeatures)")
-plt.xlabel("Residual"); plt.ylabel("Count")
-plt.tight_layout()
-plt.savefig("rolling_walk_forward_rf_residual_hist_seasonal.png", dpi=300)
-plt.show()
+sns.histplot(residuals, bins=30, kde=True, ax=axes[1, 0], color="steelblue")
+axes[1, 0].set_title("Residual distribution")
+axes[1, 0].set_xlabel("Residual"); axes[1, 0].set_ylabel("Count")
 
 # D) Feature importances
-plt.figure(figsize=(8,6))
-plt.barh(feat_imp.index, feat_imp.values, color="teal")
-plt.title("Feature importances (RF, last fit, met seizoensfeatures)")
+axes[1, 1].barh(feat_imp.index[:10], feat_imp.values[:10], color="teal")
+axes[1, 1].invert_yaxis()
+axes[1, 1].set_title("Feature importances (RF, last fit)")
+axes[1, 1].set_xlabel("Importance")
+
 plt.tight_layout()
-plt.savefig("rolling_walk_forward_rf_feature_importances_seasonal.png", dpi=300)
+plt.savefig("rolling_walk_forward_rf_all_visuals.png", dpi=300)
 plt.show()
 
-# 11) Final verdict
+
+# 10) Final verdict
 print("\n==================== FINAL VERDICT ====================")
 print(f"Rolling WF R²: {wf_r2:.4f} ({wf_r2*100:.1f}%)")
 print(f"Rolling WF RMSE: {wf_rmse:.0f} bikes")
