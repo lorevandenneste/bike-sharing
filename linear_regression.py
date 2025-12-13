@@ -310,16 +310,17 @@ results_strategy6 = {
 
 
 # ============================================================================
-# FINAL COMPARISON
+# FINAL COMPARISON - ALL STRATEGIES (excluding Strategy 3: Random Split)
 # ============================================================================
 print("\n" + "="*70)
-print("FINAL COMPARISON - ALL STRATEGIES")
+print("FINAL COMPARISON - ALL STRATEGIES (excluding Strategy 3)")
 print("="*70)
 
+# Maak een dictionary zonder Strategy 3
 all_results = {
     f"S1: {best_s1}": results_strategy1[best_s1],
     f"S2: {best_s2}": results_strategy2[best_s2],
-    f"S3: {best_s3}": results_strategy3[best_s3],
+    # "S3: {best_s3}": results_strategy3[best_s3],  # UITGESLOTEN
     "S4: Original": results_strategy4['Original'],
     f"S5: {best_s5} (CV)": best_s5_result,
     "S6: Polynomial Ridge": results_strategy6['Polynomial Ridge']
@@ -330,11 +331,11 @@ print("-"*60)
 for name, result in all_results.items():
     print(f"{name:<30} {result['test_r2']:>11.4f} {result['overfit']:>9.4f}")
 
-# Find absolute best
+# Bepaal beste resultaat zonder Strategy 3
 best_overall = max(all_results, key=lambda x: all_results[x]['test_r2'])
 best_result = all_results[best_overall]
 
-print(f"\n🏆 BEST OVERALL: {best_overall}")
+print(f"\n🏆 BEST OVERALL (excluding Strategy 3): {best_overall}")
 print(f"   Test R²: {best_result['test_r2']:.4f}")
 print(f"   Overfitting: {best_result['overfit']:.4f}")
 
@@ -345,25 +346,34 @@ print("\n" + "="*70)
 print("DETAILED EVALUATION - BEST MODEL")
 print("="*70)
 
-# Re-run best model for detailed metrics
+# Kies juiste dataset en preprocessor op basis van best_overall
 if best_overall.startswith("S1"):
     X_final = X_minimal
     preprocessor_final = preprocessor_minimal
+    shuffle_final = False
 elif best_overall.startswith("S2"):
     X_final = X_no_yr
     preprocessor_final = preprocessor_no_yr
-elif best_overall.startswith("S3"):
-    X_final = X_standard
-    preprocessor_final = preprocessor_standard
+    shuffle_final = False
+elif best_overall.startswith("S4"):
+    X_final = X_original
+    preprocessor_final = preprocessor_original
+    shuffle_final = False
+elif best_overall.startswith("S5"):
+    X_final = X_cv
+    preprocessor_final = preprocessor_cv
     shuffle_final = True
+elif best_overall.startswith("S6"):
+    X_final = X_poly
+    preprocessor_final = preprocessor_poly
+    shuffle_final = False
 else:
     X_final = X_original
     preprocessor_final = preprocessor_original
     shuffle_final = False
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X_final, y, test_size=0.2, random_state=42, 
-    shuffle=shuffle_final if 'shuffle_final' in locals() else False
+    X_final, y, test_size=0.2, random_state=42, shuffle=shuffle_final
 )
 
 X_train_proc = preprocessor_final.fit_transform(X_train)
