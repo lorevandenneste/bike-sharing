@@ -6,16 +6,17 @@ import seaborn as sns
 
 from sklearn.model_selection import train_test_split, cross_val_score, TimeSeriesSplit
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.inspection import permutation_importance # NIEUW
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error 
+from sklearn.inspection import permutation_importance 
 
-# Functie om de Root Mean Squared Error (RMSE) te berekenen op de OORSPRONKELIJKE schaal
+# Functie om de Root Mean Squared Error (RMSE), MAE en R2 te berekenen op de OORSPRONKELIJKE schaal
 def calculate_metrics(y_true_log, y_pred_log):
     y_true_exp = np.expm1(y_true_log)
     y_pred_exp = np.expm1(y_pred_log)
     r2 = r2_score(y_true_exp, y_pred_exp)
     rmse = math.sqrt(mean_squared_error(y_true_exp, y_pred_exp))
-    return r2, rmse
+    mae = mean_absolute_error(y_true_exp, y_pred_exp)
+    return r2, rmse, mae
 
 # =========================================================================
 # 1) HERGEBRUIK DATA PREPARATIE & MODEL TRAINING
@@ -49,68 +50,64 @@ rf.fit(X_train, y_train)
 # 2) GEDETAILLEERDE METRIEKEN BEREKENEN
 # =========================================================================
 
-train_r2, train_rmse = calculate_metrics(y_train, rf.predict(X_train))
-test_r2, test_rmse = calculate_metrics(y_test, rf.predict(X_test))
+y_pred_train = rf.predict(X_train)
+y_pred_test = rf.predict(X_test)
 
-# Cross-Validation scores (gedetailleerd)
-cv_scores = cross_val_score(rf, X, y, cv=tscv, scoring='r2', n_jobs=-1)
-cv_mean_r2 = cv_scores.mean()
-cv_std = cv_scores.std()
+train_r2, train_rmse, train_mae = calculate_metrics(y_train, y_pred_train) 
+test_r2, test_rmse, test_mae = calculate_metrics(y_test, y_pred_test)
 
-# Permutation Importance (Op de Testset)
-perm_importance = permutation_importance(rf, X_test, y_test, n_repeats=10, random_state=42, n_jobs=-1, scoring='r2')
-perm_imp_series = pd.Series(perm_importance.importances_mean, index=X_test.columns).sort_values(ascending=False).head(5)
-
-# Feature Importances (MDI)
-feat_imp = pd.Series(rf.feature_importances_, index=features).sort_values(ascending=False).head(5)
+# Bereken de werkelijke (niet-log) voorspellingen en waarden voor plots
+y_test_exp = np.expm1(y_test)
+y_pred_test_exp = np.expm1(y_pred_test)
 
 # =========================================================================
-# 3) NIEUWE TERMINAL OUTPUT EN PLOTS
+# 3) TERMINAL OUTPUT (Inclusief alle gevraagde metrieken)
+# (Teksten in de terminaloutput worden onveranderd gelaten in het Nederlands)
 # =========================================================================
+
+overfitting_gap_r2 = train_r2 - test_r2
+overfitting_gap_rmse = test_rmse - train_rmse 
+
 print("\n==================== 📊 EINDANALYSE RANDOM FOREST (UURDATA) 📊 ====================")
-print(f"Train R²: {train_r2:.4f} | Test R²: {test_r2:.4f} | Overfitting Gap: {train_r2 - test_r2:+.4f}")
+print(f"Train R²: {train_r2:.4f} | Test R²: {test_r2:.4f} | Overfitting Gap (R²): {overfitting_gap_r2:+.4f}")
+print(f"Train RMSE: {train_rmse:.2f} | Test RMSE: {test_rmse:.2f} | Overfitting Gap (RMSE): {overfitting_gap_rmse:+.2f}")
 print("===================================================================================\n")
 
 print("--- 🔬 Overfitting en Generalisatie ---")
-if (train_r2 - test_r2) < 0.03:
-    print(f"✅ Generalisatie Uitmuntend: Gap van {train_r2 - test_r2:+.4f} is extreem laag.")
+if overfitting_gap_r2 < 0.03 and overfitting_gap_r2 > 0:
+    print(f"✅ Generalisatie Uitmuntend: Gap van R² is extreem laag en positief ({overfitting_gap_r2:+.4f}).")
+elif overfitting_gap_r2 <= 0:
+    print(f"⚠️ Gap is Negatief: Dit kan wijzen op data leakage (of een heel kleine trainingsset). Gap: {overfitting_gap_r2:+.4f}.")
 else:
-    print(f"❌ Overfitting: Gap is hoog.")
-print(f"Test RMSE (Fietsen): {test_rmse:.2f}")
+    print(f"❌ Overfitting: De R² gap ({overfitting_gap_r2:+.4f}) is te hoog. Model presteert veel beter op training.")
 
-print("\n--- ⏳ Time Series Cross-Validation (TSC) ---")
-print(f"TSC Mean R²: {cv_mean_r2:.4f} | Standaardafwijking: {cv_std:.4f}")
-print("TSC R² per Fold (bewijst robuustheid):")
-for i, score in enumerate(cv_scores):
-    print(f"  Fold {i+1}: {score:.4f}")
-if cv_mean_r2 > 0.9:
-    print("✅ TSC Uitmuntend: De validatie is extreem stabiel over de tijd.")
+print(f"Test RMSE (Fietsen): {test_rmse:.2f} | Gemiddelde kwadratische fout op de testset.")
+print(f"Test MAE (Fietsen): {test_mae:.2f} | Gemiddelde absolute fout op de testset.")
 
-print("\n--- 🔑 Feature Importances (MDI - Op Training) ---")
-print(feat_imp.to_string())
+# =========================================================================
+# 4) VEREENVOUDIGDE VISUALS: ENKEL ACTUAL VS PREDICTED (IN HET ENGELS)
+# =========================================================================
 
-print("\n--- 🔑 Permutation Importance (Op Testset - Eerlijker) ---")
-print(perm_imp_series.to_string())
+# Maak een enkele figuur
+plt.figure(figsize=(9, 7))
 
-# Plot Residuals en Importances opnieuw om de nieuwe data te visualiseren
-residuals = np.expm1(y_test) - np.expm1(rf.predict(X_test))
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+# --- Plot: Actual vs Predicted ---
+# Scatter plot kleur is gekozen als 'blue' om een duidelijke vergelijking te maken met standaard lineaire regressie plots
+plt.scatter(y_test_exp, y_pred_test_exp, alpha=0.5, s=25, edgecolors='k', linewidths=0.5)
 
-# A) Residuals Plot
-axes[0].scatter(np.expm1(y_test), residuals, alpha=0.5, s=15, color='orange')
-axes[0].axhline(0, color='red', linestyle='--')
-axes[0].set_title('Residuals vs Werkelijke Waarde (Idealiter geen patroon)')
-axes[0].set_xlabel('Werkelijke Waarde (Fietsen)')
-axes[0].set_ylabel('Residual (Fout)')
-axes[0].grid(True, linestyle='--', alpha=0.6)
-# 
+# Perfecte voorspellingslijn (y=x)
+min_val = y_test_exp.min()
+max_val = y_test_exp.max()
+# Lijn is rood ('red') en gestippeld, zoals vaak gebruikt
+plt.plot([min_val, max_val], [min_val, max_val], 
+         'r--', lw=2, label='Perfect Prediction (y=x)')
 
-# B) Permutation Importance Plot
-axes[1].barh(perm_imp_series.index, perm_imp_series.values, color='purple')
-axes[1].set_title('Top-5 Permutation Importance (Op Testset R²)')
-axes[1].set_xlabel('Daling in R² bij Shuffling')
-axes[1].invert_yaxis()
-axes[1].grid(True, linestyle='--', axis='x', alpha=0.6)
+# Titels en labels in het Engels
+plt.title('Actual vs Predicted Plot (Random Forest Hour Data)', fontsize=14)
+plt.xlabel('Actual Value', fontsize=12)
+plt.ylabel('Predicted Value', fontsize=12)
+plt.legend(loc='lower right')
+plt.grid(True, linestyle='--', alpha=0.6)
 
 plt.tight_layout()
 plt.show()
@@ -119,5 +116,6 @@ print("\n==================== FINAL VERDICT ====================")
 print(f"Model: Random Forest Regressor")
 print(f"Data: Hour.csv (met Lag & Cyclische Encoding)")
 print(f"Test R²: {test_r2:.4f} ({test_r2*100:.1f}%)")
-print(f"RMSE: {test_rmse:.0f} fietsen")
+print(f"Test RMSE: {test_rmse:.0f} fietsen")
+print(f"Test MAE: {test_mae:.0f} fietsen") 
 print("=======================================================")
