@@ -32,7 +32,7 @@ print("\n" + "="*70)
 print("STRATEGY 1: MINIMAL FEATURES (Simplest Approach)")
 print("="*70)
 
-df = pd.read_csv("day.csv")
+df = pd.read_csv("bike-sharing/day.csv")
 
 # Only the most essential features
 categorical_minimal = ['season', 'weathersit', 'workingday']
@@ -408,16 +408,14 @@ print(f"  MAE:       {test_mae:.2f} bikes")
 print("\n📊 Creating Visualization...")
 
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-fig.suptitle(f'Best Linear Regression Result: {best_overall}', 
-             fontsize=14, fontweight='bold')
 
 # Plot 1: Actual vs Predicted
 axes[0, 0].scatter(y_test, y_test_pred, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 0].plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
                 'r--', lw=2, label='Perfect')
-axes[0, 0].set_xlabel('Actual', fontweight='bold')
-axes[0, 0].set_ylabel('Predicted', fontweight='bold')
-axes[0, 0].set_title(f'Actual vs Predicted\nR² = {test_r2:.4f}', fontweight='bold')
+axes[0, 0].set_xlabel('Actual', fontweight='bold', fontsize=16)
+axes[0, 0].set_ylabel('Predicted', fontweight='bold', fontsize=16)
+axes[0, 0].set_title(f'Actual vs Predicted', fontweight='bold', fontsize=18)
 axes[0, 0].legend()
 axes[0, 0].grid(True, alpha=0.3)
 
@@ -425,32 +423,12 @@ axes[0, 0].grid(True, alpha=0.3)
 residuals = y_test - y_test_pred
 axes[0, 1].scatter(y_test_pred, residuals, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 1].axhline(y=0, color='r', linestyle='--', lw=2)
-axes[0, 1].set_xlabel('Predicted Values', fontweight='bold')
-axes[0, 1].set_ylabel('Residuals', fontweight='bold')
-axes[0, 1].set_title('Residual Plot', fontweight='bold')
+axes[0, 1].set_xlabel('Predicted Values', fontweight='bold', fontsize=16)
+axes[0, 1].set_ylabel('Residuals', fontweight='bold', fontsize=16)
+axes[0, 1].set_title('Residual Plot', fontweight='bold', fontsize=18)
 axes[0, 1].grid(True, alpha=0.3)
 
-# Plot 3: Strategy Comparison
-strategies = list(all_results.keys())
-test_scores = [all_results[s]['test_r2'] for s in strategies]
-colors = ['green' if s == best_overall else 'gray' for s in strategies]
 
-axes[1, 0].barh(strategies, test_scores, color=colors, alpha=0.7, edgecolor='black')
-axes[1, 0].set_xlabel('Test R² Score', fontweight='bold')
-axes[1, 0].set_title('Strategy Comparison', fontweight='bold')
-axes[1, 0].grid(True, alpha=0.3, axis='x')
-
-# Plot 4: Time Series
-test_indices = range(len(y_test))
-axes[1, 1].plot(test_indices, y_test.values, 'o-', label='Actual', 
-                linewidth=2, markersize=3, alpha=0.7)
-axes[1, 1].plot(test_indices, y_test_pred, 'x-', label='Predicted', 
-                linewidth=2, markersize=3, alpha=0.7)
-axes[1, 1].set_xlabel('Test Sample Index', fontweight='bold')
-axes[1, 1].set_ylabel('Bike Rentals', fontweight='bold')
-axes[1, 1].set_title('Time Series', fontweight='bold')
-axes[1, 1].legend()
-axes[1, 1].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.savefig('linear_regression_final_attempts.png', dpi=300, bbox_inches='tight')

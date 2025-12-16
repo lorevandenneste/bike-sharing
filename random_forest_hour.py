@@ -6,7 +6,7 @@ import seaborn as sns
 
 from sklearn.model_selection import train_test_split, cross_val_score, TimeSeriesSplit
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error 
+from sklearn.metrics import mean_squared_error, r2_score, make_scorer, mean_absolute_error 
 from sklearn.inspection import permutation_importance 
 
 # Functie om de Root Mean Squared Error (RMSE), MAE en R2 te berekenen op de OORSPRONKELIJKE schaal
@@ -18,8 +18,19 @@ def calculate_metrics(y_true_log, y_pred_log):
     mae = mean_absolute_error(y_true_exp, y_pred_exp)
     return r2, rmse, mae
 
+# Functie voor custom Cross-Validation RMSE (nodig omdat CV standaard 'neg_mean_squared_error' gebruikt)
+def custom_rmse_scorer(y_true_log, y_pred_log):
+    # Converteer terug naar de oorspronkelijke schaal
+    y_true_exp = np.expm1(y_true_log)
+    y_pred_exp = np.expm1(y_pred_log)
+    # Bereken de RMSE
+    return math.sqrt(mean_squared_error(y_true_exp, y_pred_exp))
+
+# Maak een custom scorer object
+rmse_scorer = make_scorer(custom_rmse_scorer, greater_is_better=False) # greater_is_better=False voor foutmetingen
+
 # =========================================================================
-# 1) HERGEBRUIK DATA PREPARATIE & MODEL TRAINING
+# 1) HERGEBRUIK DATA PREPARATIE & MODEL TRAINING + CROSS-VALIDATION
 # =========================================================================
 data = pd.read_csv("bike-sharing/hour.csv", parse_dates=['dteday'], index_col='dteday')
 data = data.sort_index()
@@ -46,6 +57,18 @@ tscv = TimeSeriesSplit(n_splits=5)
 rf = RandomForestRegressor(n_estimators=150, max_depth=20, min_samples_leaf=5, random_state=42, n_jobs=-1)
 rf.fit(X_train, y_train)
 
+# --- NIEUWE CROSS-VALIDATION STAP ---
+# R² is standaard, maar we moeten de scores Negatief maken om Cross-Validation correct te laten werken
+cv_r2_scores_log = cross_val_score(rf, X, y, cv=tscv, scoring='r2', n_jobs=-1)
+
+# Aangezien we een custom scorer (rmse_scorer) hebben gedefinieerd die de log-terugtransformatie doet, 
+# kunnen we deze direct gebruiken om de RMSE op de oorspronkelijke schaal te krijgen.
+cv_rmse_scores = cross_val_score(rf, X, y, cv=tscv, scoring=rmse_scorer, n_jobs=-1)
+
+cv_mean_r2 = cv_r2_scores_log.mean()
+cv_mean_rmse = np.abs(cv_rmse_scores).mean()
+# -------------------------------------
+
 # =========================================================================
 # 2) GEDETAILLEERDE METRIEKEN BEREKENEN
 # =========================================================================
@@ -71,6 +94,9 @@ overfitting_gap_rmse = test_rmse - train_rmse
 print("\n==================== 📊 EINDANALYSE RANDOM FOREST (UURDATA) 📊 ====================")
 print(f"Train R²: {train_r2:.4f} | Test R²: {test_r2:.4f} | Overfitting Gap (R²): {overfitting_gap_r2:+.4f}")
 print(f"Train RMSE: {train_rmse:.2f} | Test RMSE: {test_rmse:.2f} | Overfitting Gap (RMSE): {overfitting_gap_rmse:+.2f}")
+print("--- 🔄 Cross-Validation (Timeseries - Oorspronkelijke Schaal) ---")
+print(f"Gemiddelde CV R² (5 Folds): {cv_mean_r2:.4f}")
+print(f"Gemiddelde CV RMSE (5 Folds): {cv_mean_rmse:.2f} fietsen")
 print("===================================================================================\n")
 
 print("--- 🔬 Overfitting en Generalisatie ---")
@@ -103,9 +129,9 @@ plt.plot([min_val, max_val], [min_val, max_val],
          'r--', lw=2, label='Perfect Prediction (y=x)')
 
 # Titels en labels in het Engels
-plt.title('Actual vs Predicted Plot (Random Forest Hour Data)', fontsize=14)
-plt.xlabel('Actual Value', fontsize=12)
-plt.ylabel('Predicted Value', fontsize=12)
+plt.title('Actual vs Predicted Plot (Random Forest Hour Data)', fontsize=18)
+plt.xlabel('Actual Value', fontsize=16)
+plt.ylabel('Predicted Value', fontsize=16)
 plt.legend(loc='lower right')
 plt.grid(True, linestyle='--', alpha=0.6)
 

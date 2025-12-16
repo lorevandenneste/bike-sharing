@@ -141,9 +141,9 @@ plt.plot(dates, actuals, label="Actual", color="steelblue", linewidth=2)
 plt.plot(dates, preds,   label="Predicted", color="darkorange", linestyle='--', linewidth=2)
 
 # English Titles and Labels
-plt.title("Rolling Walk-forward: Actual vs Predicted Time Series", fontsize=14)
-plt.xlabel("Date", fontsize=12)
-plt.ylabel("Bike Rentals (Count)", fontsize=12)
+plt.title("Rolling Walk-forward: Actual vs Predicted Time Series", fontsize=18)
+plt.xlabel("Date", fontsize=16)
+plt.ylabel("Bike Rentals (Count)", fontsize=16)
 plt.legend(loc='lower left')
 plt.grid(True, linestyle='--', alpha=0.6)
 
