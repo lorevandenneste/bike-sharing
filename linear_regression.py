@@ -1,12 +1,13 @@
 """
-Bike Rental Demand Prediction - Final Linear Regression Attempts
-Last attempts to improve Linear Regression before switching to Random Forest
+Bike Rental Demand Prediction - Linear Regression
 
 STRATEGIES:
-1. Simplified features (remove problematic ones)
-2. Remove 'yr' feature (might be causing leakage)
-3. Different train/test split strategy
-4. Ensemble of Linear Models
+1. MINIMAL FEATURES (BACK TO BASICS)
+2. REMOVE 'YR' FEATURE (Potential Data Leakage)
+3. DIFFERENT TRAIN/TEST SPLIT (Random Instead of Time)
+4. REGULARIZED LINEAR REGRSSION (Baseline)
+5. CROSS-VALIDATION (Robust Evaluation)
+6. POLYNOMIAL FEATURES (Non-linear Relationships)
 """
 
 import pandas as pd
@@ -22,14 +23,14 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 sns.set_style('whitegrid')
 
 print("="*70)
-print("FINAL LINEAR REGRESSION ATTEMPTS - MULTIPLE STRATEGIES")
+print("LINEAR REGRESSION - MULTIPLE STRATEGIES")
 print("="*70)
 
 # ============================================================================
 # STRATEGY 1: MINIMAL FEATURES (BACK TO BASICS)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 1: MINIMAL FEATURES (Simplest Approach)")
+print("STRATEGY 1: MINIMAL FEATURES (BACK TO BASICS)")
 print("="*70)
 
 df = pd.read_csv("day.csv")
@@ -41,7 +42,7 @@ target = 'cnt'
 
 print(f"Features: {categorical_minimal + numeric_minimal}")
 
-X_minimal = df[categorical_minimal + numeric_minimal]
+X_minimal = df[categorical_minimal + numeric_minimal] # See Lab 2 (Linear regression with multiple variables): X is a matrix with m examples and n features
 y = df[target]
 
 X_train, X_test, y_train, y_test = train_test_split(
@@ -53,10 +54,11 @@ preprocessor_minimal = ColumnTransformer([
     ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_minimal)
 ])
 
-X_train_proc = preprocessor_minimal.fit_transform(X_train)
+X_train_proc = preprocessor_minimal.fit_transform(X_train) # See Lab 2 (Linear regression with multiple variables): sklearn uses vectorisation and matrix operations
 X_test_proc = preprocessor_minimal.transform(X_test)
 
 # Try different models
+# See Lab 2 (Linear regression with multiple variables): the model optimizes w and b via a variant of gradient descent (intern by sklearn)
 models_1 = {
     'LinearReg': LinearRegression(),
     'Ridge(10)': Ridge(alpha=10),
@@ -70,7 +72,7 @@ print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
 print("-"*60)
 
 for name, model in models_1.items():
-    model.fit(X_train_proc, y_train)
+    model.fit(X_train_proc, y_train) # See Lab 2 (Linear regression with multiple variables): model.coef_ = w-vector, model.intercept_ = b (bias-term)
     train_r2 = model.score(X_train_proc, y_train)
     test_r2 = model.score(X_test_proc, y_test)
     overfit = train_r2 - test_r2
@@ -84,7 +86,7 @@ print(f"\n✓ Best: {best_s1} → Test R²: {results_strategy1[best_s1]['test_r2
 # STRATEGY 2: REMOVE 'YR' FEATURE (Potential Data Leakage)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 2: REMOVE 'YR' (Year might cause overfitting)")
+print("STRATEGY 2: REMOVE 'YR' FEATURE (Potential Data Leakage)")
 print("="*70)
 
 # yr might be memorizing training data (2011) vs test data (2012)
@@ -93,7 +95,7 @@ numeric_standard = ['temp', 'hum', 'windspeed']
 
 print(f"Features (no yr): {categorical_no_yr + numeric_standard}")
 
-X_no_yr = df[categorical_no_yr + numeric_standard]
+X_no_yr = df[categorical_no_yr + numeric_standard] # See Lab 2 (Linear regression with multiple variables): X is a matrix with m examples and n features
 
 X_train, X_test, y_train, y_test = train_test_split(
     X_no_yr, y, test_size=0.2, random_state=42, shuffle=False
@@ -104,9 +106,10 @@ preprocessor_no_yr = ColumnTransformer([
     ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_no_yr)
 ])
 
-X_train_proc = preprocessor_no_yr.fit_transform(X_train)
+X_train_proc = preprocessor_no_yr.fit_transform(X_train) # See Lab 2 (Linear regression with multiple variables): sklearn uses vectorisation and matrix operations
 X_test_proc = preprocessor_no_yr.transform(X_test)
 
+# See Lab 2 (Linear regression with multiple variables): the model optimizes w and b via a variant of gradient descent (intern by sklearn)
 models_2 = {
     'LinearReg': LinearRegression(),
     'Ridge(10)': Ridge(alpha=10),
@@ -119,7 +122,7 @@ print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
 print("-"*60)
 
 for name, model in models_2.items():
-    model.fit(X_train_proc, y_train)
+    model.fit(X_train_proc, y_train) # See Lab 2 (Linear regression with multiple variables): model.coef_ = w-vector, model.intercept_ = b (bias-term)
     train_r2 = model.score(X_train_proc, y_train)
     test_r2 = model.score(X_test_proc, y_test)
     overfit = train_r2 - test_r2
@@ -133,15 +136,15 @@ print(f"\n✓ Best: {best_s2} → Test R²: {results_strategy2[best_s2]['test_r2
 # STRATEGY 3: DIFFERENT TRAIN/TEST SPLIT (Random Instead of Time)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 3: RANDOM SPLIT (Instead of Time-based)")
+print("STRATEGY 3: DIFFERENT TRAIN/TEST SPLIT (Random Instead of Time)")
 print("="*70)
 
 categorical_standard = ['season', 'yr', 'mnth', 'weekday', 'weathersit', 'holiday', 'workingday']
-X_standard = df[categorical_standard + numeric_standard]
+X_standard = df[categorical_standard + numeric_standard] # See Lab 2 (Linear regression with multiple variables): X is a matrix with m examples and n features
 
 # Try with shuffle=True
 X_train, X_test, y_train, y_test = train_test_split(
-    X_standard, y, test_size=0.2, random_state=42, shuffle=True  # RANDOM!
+    X_standard, y, test_size=0.2, random_state=42, shuffle=True  # RANDOM
 )
 
 print("Using RANDOM split (shuffle=True)")
@@ -151,9 +154,10 @@ preprocessor_standard = ColumnTransformer([
     ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_standard)
 ])
 
-X_train_proc = preprocessor_standard.fit_transform(X_train)
+X_train_proc = preprocessor_standard.fit_transform(X_train) # See Lab 2 (Linear regression with multiple variables): sklearn uses vectorisation and matrix operations
 X_test_proc = preprocessor_standard.transform(X_test)
 
+# See Lab 2 (Linear regression with multiple variables): the model optimizes w and b via a variant of gradient descent (intern by sklearn)
 models_3 = {
     'LinearReg': LinearRegression(),
     'Ridge(10)': Ridge(alpha=10),
@@ -165,7 +169,7 @@ print(f"\n{'Model':<15} {'Train R²':<12} {'Test R²':<12} {'Overfit':<10}")
 print("-"*60)
 
 for name, model in models_3.items():
-    model.fit(X_train_proc, y_train)
+    model.fit(X_train_proc, y_train) # See Lab 2 (Linear regression with multiple variables): model.coef_ = w-vector, model.intercept_ = b (bias-term)
     train_r2 = model.score(X_train_proc, y_train)
     test_r2 = model.score(X_test_proc, y_test)
     overfit = train_r2 - test_r2
@@ -176,10 +180,10 @@ best_s3 = max(results_strategy3, key=lambda x: results_strategy3[x]['test_r2'])
 print(f"\n✓ Best: {best_s3} → Test R²: {results_strategy3[best_s3]['test_r2']:.4f}")
 
 # ============================================================================
-# STRATEGY 4: ORIGINAL APPROACH 
+# STRATEGY 4: REGULARIZED LINEAR REGRSSION (Baseline)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 4: YOUR ORIGINAL APPROACH (Baseline)")
+print("STRATEGY 4: REGULARIZED LINEAR REGRSSION (Baseline)")
 print("="*70)
 
 X_original = df[categorical_standard + numeric_standard]
@@ -193,7 +197,7 @@ preprocessor_original = ColumnTransformer([
     ('cat', OneHotEncoder(drop='first', sparse_output=False), categorical_standard)
 ])
 
-X_train_proc = preprocessor_original.fit_transform(X_train)
+X_train_proc = preprocessor_original.fit_transform(X_train) # See Lab 2 (Linear regression with multiple variables): sklearn uses vectorisation and matrix operations
 X_test_proc = preprocessor_original.transform(X_test)
 
 model_original = Lasso(alpha=1.0, max_iter=10000)
@@ -216,7 +220,7 @@ results_strategy4 = {
 # STRATEGY 5: CROSS-VALIDATION (Robust Evaluation)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 5: CROSS-VALIDATION")
+print("STRATEGY 5: CROSS-VALIDATION (Robust Evaluation)")
 print("="*70)
 
 from sklearn.model_selection import cross_val_score, KFold
@@ -233,6 +237,7 @@ preprocessor_cv = ColumnTransformer([
 X_proc = preprocessor_cv.fit_transform(X_cv)
 
 # Try Ridge and Lasso with CV
+# See Lab 2 (Linear regression with multiple variables): the model optimizes w and b via a variant of gradient descent (intern by sklearn)
 models_cv = {
     'LinearReg': LinearRegression(),
     'Ridge(10)': Ridge(alpha=10),
@@ -257,7 +262,7 @@ print(f"\n✓ Best CV Model: {best_s5} → Mean R²: {results_strategy5[best_s5]
 
 best_s5_result = {
     'test_r2': results_strategy5[best_s5]['mean_r2'],
-    'overfit': results_strategy5[best_s5]['std_r2'],  # hier gebruiken we std als 'variatie'
+    'overfit': results_strategy5[best_s5]['std_r2'],  # std is used as variance measure
     'model': results_strategy5[best_s5]['model']
 }
 
@@ -265,7 +270,7 @@ best_s5_result = {
 # STRATEGY 6: POLYNOMIAL FEATURES (Non-linear Relationships)
 # ============================================================================
 print("\n" + "="*70)
-print("STRATEGY 6: POLYNOMIAL FEATURES")
+print("STRATEGY 6: POLYNOMIAL FEATURES (Non-linear Relationships)")
 print("="*70)
 
 from sklearn.preprocessing import PolynomialFeatures
@@ -313,14 +318,13 @@ results_strategy6 = {
 # FINAL COMPARISON - ALL STRATEGIES (excluding Strategy 3: Random Split)
 # ============================================================================
 print("\n" + "="*70)
-print("FINAL COMPARISON - ALL STRATEGIES (excluding Strategy 3)")
+print("FINAL COMPARISON - ALL STRATEGIES (excluding Strategy 3: Random Split)")
 print("="*70)
 
-# Maak een dictionary zonder Strategy 3
 all_results = {
     f"S1: {best_s1}": results_strategy1[best_s1],
     f"S2: {best_s2}": results_strategy2[best_s2],
-    # "S3: {best_s3}": results_strategy3[best_s3],  # UITGESLOTEN
+    # "S3: {best_s3}": results_strategy3[best_s3],  # Leave this one out because it is not realistic for time series data
     "S4: Original": results_strategy4['Original'],
     f"S5: {best_s5} (CV)": best_s5_result,
     "S6: Polynomial Ridge": results_strategy6['Polynomial Ridge']
@@ -331,7 +335,7 @@ print("-"*60)
 for name, result in all_results.items():
     print(f"{name:<30} {result['test_r2']:>11.4f} {result['overfit']:>9.4f}")
 
-# Bepaal beste resultaat zonder Strategy 3
+# Define the best result (excluding Strategy 3)
 best_overall = max(all_results, key=lambda x: all_results[x]['test_r2'])
 best_result = all_results[best_overall]
 
@@ -346,7 +350,7 @@ print("\n" + "="*70)
 print("DETAILED EVALUATION - BEST MODEL")
 print("="*70)
 
-# Kies juiste dataset en preprocessor op basis van best_overall
+# Choose right dataset and preprocessor based on best_overall
 if best_overall.startswith("S1"):
     X_final = X_minimal
     preprocessor_final = preprocessor_minimal
@@ -376,19 +380,19 @@ X_train, X_test, y_train, y_test = train_test_split(
     X_final, y, test_size=0.2, random_state=42, shuffle=shuffle_final
 )
 
-X_train_proc = preprocessor_final.fit_transform(X_train)
+X_train_proc = preprocessor_final.fit_transform(X_train) # See Lab 2 (Linear regression with multiple variables): sklearn uses vectorisation and matrix operations
 X_test_proc = preprocessor_final.transform(X_test)
 
 best_model = best_result['model']
-best_model.fit(X_train_proc, y_train)
+best_model.fit(X_train_proc, y_train) # See Lab 2 (Linear regression with multiple variables): model.coef_ = w-vector, model.intercept_ = b (bias-term)
 
-y_train_pred = best_model.predict(X_train_proc)
-y_test_pred = best_model.predict(X_test_proc)
+y_train_pred = best_model.predict(X_train_proc) # See Lab 2 (Linear regression with multiple variables): predict() does f(x) = w·x + b for multiple variables
+y_test_pred = best_model.predict(X_test_proc) # See Lab 2 (Linear regression with multiple variables): predict() does f(x) = w·x + b for multiple variables
 
 train_r2 = r2_score(y_train, y_train_pred)
 test_r2 = r2_score(y_test, y_test_pred)
-train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
-test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
+train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred)) # See Lab 2 (Linear regression with multiple variables): This is equal to the calculation of the cost function J(w,b) for linear regression
+test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred)) # See Lab 2 (Linear regression with multiple variables): This is equal to the calculation of the cost function J(w,b) for linear regression
 train_mae = mean_absolute_error(y_train, y_train_pred)
 test_mae = mean_absolute_error(y_test, y_test_pred)
 
@@ -403,7 +407,7 @@ print(f"  RMSE:      {test_rmse:.2f} bikes")
 print(f"  MAE:       {test_mae:.2f} bikes")
 
 # ============================================================================
-# VISUALIZATION
+# VISUALIZATION: visualization techniques from the labs are used here
 # ============================================================================
 print("\n📊 Creating Visualization...")
 
@@ -456,56 +460,6 @@ plt.tight_layout()
 plt.savefig('linear_regression_final_attempts.png', dpi=300, bbox_inches='tight')
 print("✓ Saved: linear_regression_final_attempts.png")
 plt.show()
-
-# ============================================================================
-# FINAL VERDICT
-# ============================================================================
-print("\n" + "="*70)
-print("FINAL VERDICT")
-print("="*70)
-
-print(f"""
-🎯 Best Linear Regression Result:
-   Strategy: {best_overall}
-   Test R²:  {test_r2:.4f} ({test_r2*100:.1f}%)
-   RMSE:     {test_rmse:.0f} bikes
-   MAE:      {test_mae:.0f} bikes
-
-📊 Comparison to Your Original:
-   Original:  R² = {test_r2_orig:.4f} (66.5%)
-   Best Now:  R² = {test_r2:.4f} ({test_r2*100:.1f}%)
-   Change:    {(test_r2 - test_r2_orig)*100:+.1f}%
-
-💡 HONEST ASSESSMENT:
-""")
-
-if test_r2 > 0.80:
-    print("   🎉 SUCCESS! Linear Regression works well!")
-    print("   You can continue with this approach.")
-elif test_r2 > 0.75:
-    print("   ✓ ACCEPTABLE! But Random Forest will likely do better.")
-    print("   Try Random Forest for comparison.")
-elif test_r2 > 0.70:
-    print("   ⚠️  MARGINAL! Linear Regression is struggling.")
-    print("   Random Forest is strongly recommended.")
-else:
-    print("   ❌ LINEAR REGRESSION HAS REACHED ITS LIMIT!")
-    print("   The problem is fundamentally non-linear.")
-    print("   You MUST switch to Random Forest or tree-based models.")
-    print("")
-    print("   Expected with Random Forest: R² = 0.85-0.92")
-
-print(f"""
-🔄 Next Steps:
-   1. If R² > 0.75: You can stick with Linear Regression
-   2. If R² < 0.75: Switch to Random Forest (I can help!)
-
-📚 What We Learned:
-   - Linear models struggle with non-linear bike rental patterns
-   - Year (yr) feature can cause train/test mismatch
-   - Random split helps but loses time-series structure
-   - Feature engineering alone doesn't solve fundamental model limitations
-""")
 
 print("="*70)
 print("✅ Analysis Complete!")
