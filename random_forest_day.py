@@ -132,23 +132,71 @@ print(feat_imp.head(5))
 # ===================== VISUALS =====================
 print("\n📊 Generating visualization...")
 
-# Maak een enkele figuur voor Actual vs Predicted
-plt.figure(figsize=(12, 6))
 
-# Actual vs Predicted Plot (Time Series)
-# Gebruik de gevraagde Engelse labels en kleuren
-plt.plot(dates, actuals, label="Actual", color="steelblue", linewidth=2)
-plt.plot(dates, preds,   label="Predicted", color="darkorange", linestyle='--', linewidth=2)
-
-# English Titles and Labels
-plt.title("Rolling Walk-forward: Actual vs Predicted Time Series", fontsize=18)
-plt.xlabel("Date", fontsize=16)
-plt.ylabel("Bike Rentals (Count)", fontsize=16)
-plt.legend(loc='lower left')
-plt.grid(True, linestyle='--', alpha=0.6)
-
+# 1) Actual vs Predicted (scatter) met perfecte lijn
+plt.figure(figsize=(8, 6))
+plt.scatter(actuals, preds, alpha=0.6, s=40, edgecolors='k', linewidths=0.4)
+min_val = min(min(actuals), min(preds))
+max_val = max(max(actuals), max(preds))
+plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect (y=x)')
+plt.title('Actual vs Predicted (Rolling Walk-forward, Daily)', fontsize=16)
+plt.xlabel('Actual daily rentals', fontsize=14)
+plt.ylabel('Predicted daily rentals', fontsize=14)
+plt.legend(loc='lower right')
+plt.grid(True, alpha=0.4)
 plt.tight_layout()
-plt.savefig("rolling_walk_forward_actual_vs_predicted.png", dpi=300)
+plt.savefig('day_rf_wf_scatter_actual_vs_pred.png', dpi=300)
+plt.show()
+
+# 2) Residual plot (residuals vs predicted)
+residuals_wf = np.array(actuals) - np.array(preds)
+plt.figure(figsize=(8, 6))
+plt.scatter(preds, residuals_wf, alpha=0.6, s=40, edgecolors='k', linewidths=0.4)
+plt.axhline(0, color='r', linestyle='--', lw=2)
+plt.title('Residuals vs Predicted (Rolling Walk-forward, Daily)', fontsize=16)
+plt.xlabel('Predicted daily rentals', fontsize=14)
+plt.ylabel('Residuals (actual - predicted)', fontsize=14)
+plt.grid(True, alpha=0.4)
+plt.tight_layout()
+plt.savefig('day_rf_wf_residuals_vs_pred.png', dpi=300)
+plt.show()
+
+# 3) Time series: Actual vs Predicted
+plt.figure(figsize=(12, 5))
+plt.plot(dates, actuals, label='Actual', color='steelblue', lw=2)
+plt.plot(dates, preds,  label='Predicted', color='darkorange', lw=2, linestyle='--')
+plt.title('Time Series: Actual vs Predicted (Rolling Walk-forward, Daily)', fontsize=16)
+plt.xlabel('Date', fontsize=14)
+plt.ylabel('Bike rentals (count)', fontsize=14)
+plt.legend(loc='upper left')
+plt.grid(True, alpha=0.4)
+plt.tight_layout()
+plt.savefig('day_rf_wf_timeseries_actual_vs_pred.png', dpi=300)
+plt.show()
+
+# 4) Residuals over time
+plt.figure(figsize=(12, 4))
+plt.plot(dates, residuals_wf, color='purple', lw=1.8)
+plt.axhline(0, color='gray', linestyle='--', lw=1.5)
+plt.title('Residuals over Time (Rolling Walk-forward, Daily)', fontsize=16)
+plt.xlabel('Date', fontsize=14)
+plt.ylabel('Residuals', fontsize=14)
+plt.grid(True, alpha=0.4)
+plt.tight_layout()
+plt.savefig('day_rf_wf_residuals_over_time.png', dpi=300)
+plt.show()
+
+# 5) Feature importance (bar chart)
+importances = rf.feature_importances_
+feat_imp = pd.Series(importances, index=features).sort_values(ascending=True)
+
+plt.figure(figsize=(8, max(5, 0.3 * len(feat_imp))))
+feat_imp.plot(kind='barh', color='teal')
+plt.title('Random Forest Feature Importance (Daily)', fontsize=16)
+plt.xlabel('Importance', fontsize=14)
+plt.tight_layout()
+plt.savefig('day_rf_feature_importance.png', dpi=300)
+
 plt.show()
 
 

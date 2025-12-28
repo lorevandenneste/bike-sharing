@@ -84,8 +84,7 @@ y_test_exp = np.expm1(y_test)
 y_pred_test_exp = np.expm1(y_pred_test)
 
 # =========================================================================
-# 3) TERMINAL OUTPUT (Inclusief alle gevraagde metrieken)
-# (Teksten in de terminaloutput worden onveranderd gelaten in het Nederlands)
+# 3) FINAL ANALYSIS EN INTERPRETATION 
 # =========================================================================
 
 overfitting_gap_r2 = train_r2 - test_r2
@@ -111,32 +110,67 @@ print(f"Test RMSE (Fietsen): {test_rmse:.2f} | Gemiddelde kwadratische fout op d
 print(f"Test MAE (Fietsen): {test_mae:.2f} | Gemiddelde absolute fout op de testset.")
 
 # =========================================================================
-# 4) VEREENVOUDIGDE VISUALS: ENKEL ACTUAL VS PREDICTED (IN HET ENGELS)
+# 4) VISUALS
 # =========================================================================
 
-# Maak een enkele figuur
-plt.figure(figsize=(9, 7))
-
-# --- Plot: Actual vs Predicted ---
-# Scatter plot kleur is gekozen als 'blue' om een duidelijke vergelijking te maken met standaard lineaire regressie plots
-plt.scatter(y_test_exp, y_pred_test_exp, alpha=0.5, s=25, edgecolors='k', linewidths=0.5)
-
-# Perfecte voorspellingslijn (y=x)
-min_val = y_test_exp.min()
-max_val = y_test_exp.max()
-# Lijn is rood ('red') en gestippeld, zoals vaak gebruikt
-plt.plot([min_val, max_val], [min_val, max_val], 
-         'r--', lw=2, label='Perfect Prediction (y=x)')
-
-# Titels en labels in het Engels
-plt.title('Actual vs Predicted Plot (Random Forest Hour Data)', fontsize=18)
-plt.xlabel('Actual Value', fontsize=16)
-plt.ylabel('Predicted Value', fontsize=16)
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test_exp, y_pred_test_exp, alpha=0.6, s=45, edgecolors='k', linewidths=0.4)
+min_val = min(y_test_exp.min(), y_pred_test_exp.min())
+max_val = max(y_test_exp.max(), y_pred_test_exp.max())
+plt.plot([min_val, max_val], [min_val, max_val], 'r--', lw=2, label='Perfect (y=x)')
+plt.title("Actual vs Predicted (Hourly Test Set)", fontsize=16)
+plt.xlabel("Actual hourly rentals", fontsize=14)
+plt.ylabel("Predicted hourly rentals", fontsize=14)
 plt.legend(loc='lower right')
-plt.grid(True, linestyle='--', alpha=0.6)
-
+plt.grid(True, alpha=0.4)
 plt.tight_layout()
+plt.savefig('hour_rf_scatter_actual_vs_pred.png', dpi=300)
 plt.show()
+
+# --- 2) Scatter: Residuals vs Predicted (testset, originele schaal) ---
+residuals_test = y_test_exp - y_pred_test_exp
+plt.figure(figsize=(8, 6))
+plt.scatter(y_pred_test_exp, residuals_test, alpha=0.6, s=45, edgecolors='k', linewidths=0.4)
+plt.axhline(0, color='r', linestyle='--', lw=2)
+plt.title("Residuals vs Predicted (Hourly Test Set)", fontsize=16)
+plt.xlabel("Predicted hourly rentals", fontsize=14)
+plt.ylabel("Residual (actual - predicted)", fontsize=14)
+plt.grid(True, alpha=0.4)
+plt.tight_layout()
+plt.savefig('hour_rf_scatter_residuals_vs_pred.png', dpi=300)
+plt.show()
+
+# --- 3) Time Series: Actual vs Predicted over de testperiode ---
+# We reconstrueren een unieke tijd-as (datum + uur) voor de testset.
+# Tip: train_test_split met shuffle=False splitst de laatste 20% als test; we gebruiken dezelfde lengte om het origineel te snijden.
+n_test = len(y_test)
+test_slice = data.iloc[-n_test:]  # 'data' is je originele hourly dataframe met index=dteday en kolom 'hr'
+ts_test = test_slice.index + pd.to_timedelta(test_slice['hr'], unit='h')
+
+plt.figure(figsize=(20, 5), dpi=150)
+plt.plot(ts_test, np.expm1(y_test), label='Actual', color='steelblue', lw=2)
+plt.plot(ts_test, np.expm1(y_pred_test), label='Predicted', color='darkorange', lw=2, linestyle='--')
+plt.title('Time Series: Actual vs Predicted (Random Forest, Hourly Test)', fontsize=16)
+plt.xlabel('Timestamp (date + hour)', fontsize=14)
+plt.ylabel('Bike rentals (count)', fontsize=14)
+plt.legend(loc='upper left')
+plt.grid(True, alpha=0.4)
+plt.tight_layout()
+plt.savefig('hour_rf_timeseries_actual_vs_pred.png', dpi=300)
+plt.show()
+
+# --- 4) Feature importance (MDI) ---
+importances = rf.feature_importances_         # RandomForestRegressor attribute
+feat_imp = pd.Series(importances, index=features).sort_values(ascending=True)
+
+plt.figure(figsize=(8, max(5, 0.30 * len(feat_imp))))
+feat_imp.plot(kind='barh', color='teal')
+plt.title('Random Forest Feature Importance (Hourly)', fontsize=16)
+plt.xlabel('Importance', fontsize=14)
+plt.tight_layout()
+plt.savefig('hour_rf_feature_importance.png', dpi=300)
+plt.show()
+
 
 print("\n==================== FINAL VERDICT ====================")
 print(f"Model: Random Forest Regressor")
