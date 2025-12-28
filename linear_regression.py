@@ -8,6 +8,10 @@ STRATEGIES:
 4. REGULARIZED LINEAR REGRSSION (Baseline)
 5. CROSS-VALIDATION (Robust Evaluation)
 6. POLYNOMIAL FEATURES (Non-linear Relationships)
+
+References:
+This project made use of generative AI to assist with code,
+    and enhancing the understanding of machine learning concepts.
 """
 
 import pandas as pd
@@ -339,7 +343,7 @@ for name, result in all_results.items():
 best_overall = max(all_results, key=lambda x: all_results[x]['test_r2'])
 best_result = all_results[best_overall]
 
-print(f"\n🏆 BEST OVERALL (excluding Strategy 3): {best_overall}")
+print(f"\n BEST OVERALL (excluding Strategy 3): {best_overall}")
 print(f"   Test R²: {best_result['test_r2']:.4f}")
 print(f"   Overfitting: {best_result['overfit']:.4f}")
 
@@ -396,12 +400,12 @@ test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred)) # See Lab 2 (Linear
 train_mae = mean_absolute_error(y_train, y_train_pred)
 test_mae = mean_absolute_error(y_test, y_test_pred)
 
-print(f"\n📈 TRAINING SET:")
+print(f"\n TRAINING SET:")
 print(f"  R² Score:  {train_r2:.4f} ({train_r2*100:.2f}%)")
 print(f"  RMSE:      {train_rmse:.2f} bikes")
 print(f"  MAE:       {train_mae:.2f} bikes")
 
-print(f"\n📉 TEST SET:")
+print(f"\n TEST SET:")
 print(f"  R² Score:  {test_r2:.4f} ({test_r2*100:.2f}%)")
 print(f"  RMSE:      {test_rmse:.2f} bikes")
 print(f"  MAE:       {test_mae:.2f} bikes")
@@ -409,36 +413,44 @@ print(f"  MAE:       {test_mae:.2f} bikes")
 # ============================================================================
 # VISUALIZATION: visualization techniques from the labs are used here
 # ============================================================================
-print("\n📊 Creating Visualization...")
 
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-# Plot 1: Actual vs Predicted
+# --- Actual vs Predicted Scatter ---
 axes[0, 0].scatter(y_test, y_test_pred, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 0].plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
-                'r--', lw=2, label='Perfect')
-axes[0, 0].set_xlabel('Actual', fontweight='bold', fontsize=16)
-axes[0, 0].set_ylabel('Predicted', fontweight='bold', fontsize=16)
-axes[0, 0].set_title(f'Actual vs Predicted', fontweight='bold', fontsize=18)
+                'r--', lw=2, label='Perfect Fit (y=x)')
+axes[0, 0].set_xlabel('Actual Values', fontweight='bold', fontsize=14)
+axes[0, 0].set_ylabel('Predicted Values', fontweight='bold', fontsize=14)
+axes[0, 0].set_title('Actual vs Predicted Count', fontweight='bold', fontsize=16)
 axes[0, 0].legend()
 axes[0, 0].grid(True, alpha=0.3)
 
-# Plot 2: Residuals
+# --- Residual Analysis ---
 residuals = y_test - y_test_pred
 axes[0, 1].scatter(y_test_pred, residuals, alpha=0.6, s=50, edgecolors='k', linewidth=0.5)
 axes[0, 1].axhline(y=0, color='r', linestyle='--', lw=2)
-axes[0, 1].set_xlabel('Predicted Values', fontweight='bold', fontsize=16)
-axes[0, 1].set_ylabel('Residuals', fontweight='bold', fontsize=16)
-axes[0, 1].set_title('Residual Plot', fontweight='bold', fontsize=18)
+axes[0, 1].set_xlabel('Predicted Values', fontweight='bold', fontsize=14)
+axes[0, 1].set_ylabel('Residuals', fontweight='bold', fontsize=14)
+axes[0, 1].set_title('Residual Plot (Errors vs. Predictions)', fontweight='bold', fontsize=16)
 axes[0, 1].grid(True, alpha=0.3)
 
+# --- Time Series Comparison ---
+axes[1, 0].plot(y_test.index, y_test, label='Actual', color='steelblue', lw=2, alpha=0.8)
+axes[1, 0].plot(y_test.index, y_test_pred, label='Predicted', color='darkorange', lw=2, linestyle='--', alpha=0.9)
+axes[1, 0].set_xlabel('Date/Time', fontweight='bold', fontsize=14)
+axes[1, 0].set_ylabel('Rental Count', fontweight='bold', fontsize=14)
+axes[1, 0].set_title('Time Series Comparison', fontweight='bold', fontsize=16)
+axes[1, 0].legend()
+axes[1, 0].grid(True, alpha=0.3)
 
+axes[1, 1].axis('off')
 
 plt.tight_layout()
 plt.savefig('linear_regression_final_attempts.png', dpi=300, bbox_inches='tight')
-print("✓ Saved: linear_regression_final_attempts.png")
+print(" Saved: linear_regression_final_attempts.png")
 plt.show()
 
 print("="*70)
-print("✅ Analysis Complete!")
+print(" Analysis Complete!")
 print("="*70)
