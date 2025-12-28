@@ -25,7 +25,7 @@ plt.rcParams['figure.dpi'] = 120
 # =========================================================================
 # 1) DATA LOADING AND INDEXING
 # =========================================================================
-data = pd.read_csv("bike-sharing/day.csv", parse_dates=['dteday'], index_col='dteday')
+data = pd.read_csv("day.csv", parse_dates=['dteday'], index_col='dteday')
 data = data.sort_index()
 
 # =========================================================================

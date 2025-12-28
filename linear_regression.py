@@ -37,7 +37,7 @@ print("\n" + "="*70)
 print("STRATEGY 1: MINIMAL FEATURES (BACK TO BASICS)")
 print("="*70)
 
-df = pd.read_csv("bike-sharing/day.csv")
+df = pd.read_csv("day.csv")
 
 # Only the most essential features
 categorical_minimal = ['season', 'weathersit', 'workingday']

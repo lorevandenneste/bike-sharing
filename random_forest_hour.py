@@ -42,7 +42,7 @@ rmse_scorer = make_scorer(custom_rmse_scorer, greater_is_better=False) # greater
 # =========================================================================
 # 1) DATA PREPARATION, MODEL TRAINING & CROSS-VALIDATION
 # =========================================================================
-data = pd.read_csv("bike-sharing/hour.csv", parse_dates=['dteday'], index_col='dteday')
+data = pd.read_csv("hour.csv", parse_dates=['dteday'], index_col='dteday')
 data = data.sort_index()
 data['cnt'] = np.log1p(data['cnt'])
 data['cnt_lag_1'] = data['cnt'].shift(1)
